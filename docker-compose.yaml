@@ -1,0 +1,83 @@
+# definizione dei servizi (container) che compongono l'ambiente
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: jenkins
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      # Aggiungi mount per Docker socket 
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Aggiungi mount per Docker binari
+      - /usr/bin/docker:/usr/bin/docker
+      # Aggiungi mount per kubectl se necessario
+      - /usr/local/bin/kubectl:/usr/local/bin/kubectl
+    user: root  # Necessario per installare strumenti e usare Docker
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    networks:
+      - devops_network
+    # Aggiungi privileged mode per accesso completo
+    privileged: true
+
+  # secondo 
+  nexus:
+    image: sonatype/nexus3
+    container_name: nexus
+    ports:
+      # interfaccia web
+      - "8081:8081"
+      # porta 8083: Potenzialmente per registry Docker privato
+      - "8083:8083"
+    volumes:
+      - nexus_data:/nexus-data
+      # configurazione dei parametri JVM
+    environment:
+      # imposta parametri di memoria per Java
+      - INSTALL4J_ADD_VM_PARAMS=-Xms2703m -Xmx2703m -XX:MaxDirectMemorySize=2703m
+    networks:
+      - devops_network
+
+  gitlab:
+    # immagine Community Edition di GitLab
+    image: gitlab/gitlab-ce:latest
+    container_name: gitlab
+    hostname: gitlab.local
+    ports:
+      # Porta 80: HTTP
+      - "80:80"
+    volumes:
+      # Volume per configurazioni
+      - gitlab_config:/etc/gitlab
+      # Volume per log
+      - gitlab_logs:/var/log/gitlab
+      # Volume per dati
+      - gitlab_data:/var/opt/gitlab
+    environment:
+      GITLAB_ROOT_PASSWORD_DISPLAY: "yes"
+      # Configurazione Omnibus (sistema di configurazione di GitLab) e password iniziale per l'utente root 
+      GITLAB_OMNIBUS_CONFIG: |
+        gitlab_rails['store_initial_root_password'] = true
+        puma['worker_processes'] = 0
+
+    networks:
+      - devops_network
+
+networks:
+  devops_network:
+    driver: bridge
+
+# Definizione dei volumi persistenti
+volumes:
+  jenkins_home:
+    driver: local
+  nexus_data:
+    driver: local
+  gitlab_config:
+    driver: local
+  gitlab_logs:
+    driver: local
+  gitlab_data:
+    driver: local
