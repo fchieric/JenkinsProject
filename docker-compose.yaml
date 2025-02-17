@@ -8,12 +8,8 @@ services:
       - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
-      # Aggiungi mount per Docker socket 
       - /var/run/docker.sock:/var/run/docker.sock
-      # Aggiungi mount per Docker binari
-      - /usr/bin/docker:/usr/bin/docker
-      # Aggiungi mount per kubectl se necessario
-      - /usr/local/bin/kubectl:/usr/local/bin/kubectl
+      - /usr/bin/docker:/usr/bin/docker 
     user: root  # Necessario per installare strumenti e usare Docker
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
