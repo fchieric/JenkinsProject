@@ -15,8 +15,7 @@ services:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
     networks:
       - devops_network
-    # Aggiungi privileged mode per accesso completo
-    privileged: true
+    user: root
 
   # secondo 
   nexus:
