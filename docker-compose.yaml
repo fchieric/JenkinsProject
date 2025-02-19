@@ -10,12 +10,12 @@ services:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/bin/docker:/usr/bin/docker 
-    user: root  # Necessario per installare strumenti e usare Docker
+    user: root
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
     networks:
       - devops_network
-    user: root
+    hostname: jenkins.local
 
   # secondo 
   nexus:
