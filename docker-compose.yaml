@@ -24,8 +24,6 @@ services:
     ports:
       # interfaccia web
       - "8081:8081"
-      # porta 8083: Potenzialmente per registry Docker privato
-      - "8083:8083"
     volumes:
       - nexus_data:/nexus-data
       # configurazione dei parametri JVM
