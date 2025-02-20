@@ -1,0 +1,49 @@
+pipeline {
+    agent any
+
+    triggers {
+        gitlab(triggerOnPush: true, triggerOnMergeRequest: true)
+    }
+
+    stages {
+        stage('Setup Python Environment') {
+            steps {
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install -r requirements.txt
+                    pip install pyinstaller
+                '''
+            }
+        }
+        
+        stage('Build with PyInstaller') {
+            steps {
+                sh '''
+                    . venv/bin/activate
+                    pyinstaller --onefile app.py
+                '''
+            }
+        }
+        
+        stage('Upload to Nexus') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'nexus-credentials', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                    sh '''
+                        cd dist
+                        curl -v -u ${NEXUS_USER}:${NEXUS_PASS} --upload-file app http://nexus:8081/repository/raw_repo/app-flask/1.0.0/app
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo 'Build successful! yay !!'
+        }
+        failure {
+            echo 'Build failed! :( '
+        }
+    }
+}

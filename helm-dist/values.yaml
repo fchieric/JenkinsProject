@@ -1,0 +1,34 @@
+replicaCount: 1
+
+image:
+  repository: bitnami/minideb
+  tag: latest
+  pullPolicy: IfNotPresent
+
+agentName: "Fabi"
+
+nexus:
+  url: "http://nexus:8081"
+  repository: "raw_repo"
+  path: "app-flask/1.0.0/app"
+
+service:
+  type: NodePort #ora che è nella stessa rete va bene cluserIp, no NodePort
+  port: 5000
+  targetPort: 5000
+
+livenessProbe:
+  path: /health-check
+  initialDelaySeconds: 10
+  periodSeconds: 30
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: flask-app.local
+      paths:
+        - path: /
+          pathType: Prefix
+        - path: /health-check
+          pathType: Prefix
