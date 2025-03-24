@@ -1,37 +1,125 @@
 pipeline {
     agent any
-
-    triggers {
-        gitlab(triggerOnPush: true, triggerOnMergeRequest: true)
+    
+    environment {
+        NEXUS_URL = "http://nexus:8081"
+        NEXUS_REPOSITORY = "raw_repo"
+        NEXUS_CREDENTIALS = credentials('nexus-credentials')
+        APP_NAME = "appflask"
     }
-
+    
     stages {
-        stage('Setup Python Environment') {
+        stage('Setup') {
             steps {
+                // Checkout code
+                checkout scm
+                
+                // Generate timestamp and save to file
                 sh '''
-                    python3 -m venv venv
-                    . venv/bin/activate
-                    pip install -r requirements.txt
-                    pip install pyinstaller
+                # Generate timestamp and save to a file
+                DATE_STR=$(date +%Y%m%d%H%M%S)
+                echo $DATE_STR > version_timestamp.txt
+                cat version_timestamp.txt
+                
+                # Setup Python
+                python3 -m venv venv
+                . venv/bin/activate
+                pip3 install -r requirements.txt
                 '''
             }
         }
         
-        stage('Build with PyInstaller') {
+        stage('Ruff Check') {
             steps {
                 sh '''
-                    . venv/bin/activate
-                    pyinstaller --onefile app.py
+                . venv/bin/activate
+                # Only check specific application files
+                ruff check app.py version.py --select E,F,S,I,N,W --ignore D,ANN,Q,COM,S104
+                '''
+            }
+        }
+        
+        stage('Bandit SAST Check') {
+            steps {
+                sh '''
+                . venv/bin/activate
+                # Only check specific application files
+                bandit -r app.py version.py -ll
+                '''
+            }
+        }
+        
+        stage('Update Version') {
+            steps {
+                // Update version.py with timestamp
+                sh '''
+                # Read the timestamp from file
+                VERSION_STR=$(cat version_timestamp.txt)
+                echo "Using version: $VERSION_STR"
+                
+                # Update version.py - sostituisce qualsiasi valore tra le virgolette
+                sed -i 's/VERSION = "[^"]*"/VERSION = "'$VERSION_STR'"/g' version.py
+                cat version.py
+                '''
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh '''
+                . venv/bin/activate
+                pyinstaller --onefile app.py
                 '''
             }
         }
         
         stage('Upload to Nexus') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'nexus-credentials', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                sh '''
+                # Read the timestamp from file
+                VERSION_STR=$(cat version_timestamp.txt)
+                
+                # Upload with timestamp version
+                curl -u $NEXUS_CREDENTIALS_USR:$NEXUS_CREDENTIALS_PSW --upload-file dist/app $NEXUS_URL/repository/$NEXUS_REPOSITORY/app-flask/$APP_NAME-$VERSION_STR
+                
+                # Upload as latest version
+                curl -u $NEXUS_CREDENTIALS_USR:$NEXUS_CREDENTIALS_PSW --upload-file dist/app $NEXUS_URL/repository/$NEXUS_REPOSITORY/app-flask/$APP_NAME-latest
+                
+                echo "Uploaded versions: app-flask/$APP_NAME-$VERSION_STR and app-flask/$APP_NAME-latest"
+                '''
+            }
+        }
+        
+        stage('Push Changes & Create Tag') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'gitlab-credentials', 
+                                                 usernameVariable: 'GIT_USERNAME', 
+                                                 passwordVariable: 'GIT_PASSWORD')]) {              
                     sh '''
-                        cd dist
-                        curl -v -u ${NEXUS_USER}:${NEXUS_PASS} --upload-file app http://nexus:8081/repository/raw_repo/app-flask/1.0.0/app
+                        # Read the timestamp from file
+                        VERSION_STR=$(cat version_timestamp.txt)
+                        echo "Using version for git operations: $VERSION_STR"
+                        
+                        # Configure git
+                        git config user.email "jenkins@example.com"
+                        git config user.name "Jenkins"
+                        
+                        # Add and commit
+                        git add version.py
+                        git commit -m "Update version to $VERSION_STR [ci skip]"
+                        
+                        # Use the origin remote that's already configured
+                        git config credential.helper '!f() { echo "username=$GIT_USERNAME"; echo "password=$GIT_PASSWORD"; }; f'
+                        
+                        # Push to origin (already configured)
+                        git push origin HEAD:main
+                        
+                        # Create and push tag
+                        git tag -a $VERSION_STR -m "Release $VERSION_STR"
+                        git push origin $VERSION_STR
+                        
+                        # Clean up
+                        git config --unset credential.helper
                     '''
                 }
             }
@@ -40,10 +128,10 @@ pipeline {
     
     post {
         success {
-            echo 'Build successful! yay !!'
+            echo "Pipeline completed successfully"
         }
         failure {
-            echo 'Build failed! :( '
+            echo "Pipeline failed"
         }
     }
 }
