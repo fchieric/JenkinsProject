@@ -1,9 +1,17 @@
-from flask import Flask, request
-from datetime import datetime
-import pytz
+"""Flask app that displays current time in Italian timezone with rate limiting."""
+
+# Import standard
 import os
+from datetime import datetime
+
+# Import terze parti
+import pytz
+from flask import Flask
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+
+# Import moduli interni
+import version
 
 app = Flask(__name__)
 
@@ -16,36 +24,35 @@ limiter = Limiter(
 )
 
 # Italian timezone configuration
-timezone = pytz.timezone('Europe/Rome')
+timezone = pytz.timezone("Europe/Rome")
 
-# Get version from version.info file
-def get_version():
-    try:
-        with open('version.info', 'r') as version_file:
-            return version_file.read().strip()
-    except FileNotFoundError:
-        return "1.0.0"  # Default version if file not found
 
-@app.route('/')
+@app.route("/")
 @limiter.limit("100 per minute")
 def hello():
+    """Generate greeting message with agent name, version and current time."""
     # Get agent name from environment variable or use default
-    agent_name = os.getenv('AGENT_NAME', 'Flask')
+    agent_name = os.getenv("AGENT_NAME", "Flask")
     # Get current time in Italian timezone
     current_time = datetime.now(timezone)
     formatted_time = current_time.strftime("%H:%M")
     # Get version from file
-    version = get_version()
-    return f"Ciao, mi chiamo {agent_name} versione {version} sono le ore {formatted_time}"
+    app_version = version.get_version()
+    message = f"Ciao, mi chiamo {agent_name} versione {app_version}"
+    return f"{message} sono le ore {formatted_time}"
 
-@app.route('/health-check')
+
+@app.route("/health-check")
 @limiter.limit("100 per minute")
 def health_check():
+    """Provide health status information."""
     return {
         "status": "healthy",
         "timestamp": datetime.now(timezone).isoformat(),
-        "version": get_version()
+        "version": version.get_version(),
     }
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+
+if __name__ == "__main__":
+    # Avvio dell'applicazione Flask
+    app.run(host="0.0.0.0", port=5000) # nosec B104
