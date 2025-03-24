@@ -17,7 +17,6 @@ services:
       - devops_network
     hostname: jenkins.local
 
-  # secondo 
   nexus:
     image: sonatype/nexus3
     container_name: nexus
@@ -55,6 +54,36 @@ services:
         gitlab_rails['store_initial_root_password'] = true
         puma['worker_processes'] = 0
 
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - devops_network
+    restart: always
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - devops_network
+    depends_on:
+      - prometheus
+    restart: always
+
+
     networks:
       - devops_network
 
@@ -73,4 +102,8 @@ volumes:
   gitlab_logs:
     driver: local
   gitlab_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
