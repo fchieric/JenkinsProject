@@ -1,7 +1,7 @@
 # Documentazione helm-dist
 
 ## Overview
-Questa Helm Chart permette il deployment di un'applicazione Flask su Kubernetes. L'applicazione viene scaricata da un repository Nexus e deployata come un binario eseguibile.
+Questa Helm Chart permette il deployment di un'applicazione Flask su Kubernetes. L'applicazione viene scaricata da un repository Nexus e deployata come un binario eseguibile. È possibile specificare quale versione dell'applicazione si desidera utilizzare.
 
 ## Prerequisiti
 - Kubernetes cluster (K3s, Minikube, o Docker Desktop Kubernetes)
@@ -34,6 +34,9 @@ helm-dist/
     └── ingress.yaml      # Configurazione dell'ingress
 ```
 
+## Versioning
+La chart supporta il deployment di versioni specifiche dell'applicazione. La versione desiderata può essere specificata nel file `values.yaml` o tramite parametri durante l'installazione o l'aggiornamento con Helm.
+
 ## Flusso di Deployment
 
 ### 1. Configurazione dell'ambiente base:
@@ -59,8 +62,9 @@ pip install -r requirements.txt
 # Compilazione applicazione
 pyinstaller --onefile app.py
 
-# Upload su Nexus
-curl -u $NEXUS_USER:$NEXUS_PASS --upload-file app http://nexus:8081/repository/raw_repo/app-flask/1.0.0/app
+# Upload su Nexus (specificando la versione)
+export APP_VERSION="1.0.0"  # Cambia a seconda della versione desiderata
+curl -u $NEXUS_USER:$NEXUS_PASS --upload-file app http://nexus:8081/repository/raw_repo/app-flask/$APP_VERSION/app
 ```
 
 ### 3. Configurazione Minikube:
@@ -77,20 +81,26 @@ minikube addons enable ingress
 
 ### 4. Deploy (Helm)
 ```bash
-# Installazione della chart
+# Installazione della chart con versione di default (1.0.0)
 helm install my-flask-app ./helm-dist
+
+# Installazione specificando una versione particolare dell'applicazione
+helm install my-flask-app ./helm-dist --set appVersion=1.1.0
+
+# Aggiornamento ad una nuova versione
+helm upgrade my-flask-app ./helm-dist --set appVersion=1.2.0
 ```
 
 Quando esegui questo comando:
-- Helm legge values.yaml
+- Helm legge values.yaml (e i parametri aggiuntivi)
 - Processa i template
 - Kubernetes crea:
-  * Pod che scarica ed esegue il binario
+  * Pod che scarica ed esegue il binario della versione specificata
   * Service per esporre l'app
   * Ingress per l'accesso esterno
 
 ### 5. Runtime
-- Il pod scarica il binario da Nexus
+- Il pod scarica il binario della versione specificata da Nexus
 - L'applicazione Flask viene eseguita
 - L'app è accessibile attraverso l'ingress configurato
 - Il health check monitora lo stato dell'applicazione
@@ -102,8 +112,8 @@ Quando esegui questo comando:
 # Installazione
 helm install my-flask-app ./helm-dist
 
-# Aggiornamento configurazione
-helm upgrade my-flask-app ./helm-dist --set agentName="nome-da-inserire"
+# Aggiornamento configurazione e/o versione
+helm upgrade my-flask-app ./helm-dist --set agentName="nome-da-inserire" --set appVersion=1.1.0
 
 # Lista delle release
 helm list
@@ -149,7 +159,7 @@ curl http://localhost:5000/health-check
 Definisce i metadati del pacchetto:
 ```yaml
 name: flask-app
-version: 0.1.0
+version: 0.2.0
 appVersion: "1.0.0"
 ```
 
@@ -161,6 +171,7 @@ image:
   repository: bitnami/minideb
   tag: latest
 agentName: "Fabi"
+appVersion: "1.0.0"  # Versione dell'applicazione da usare
 service:
   type: NodePort
   port: 5000
@@ -171,7 +182,7 @@ I file nella cartella templates/ definiscono come l'applicazione viene eseguita 
 
 #### deployment.yaml
 - Usa minideb come immagine base
-- Scarica il binario da Nexus
+- Scarica il binario della versione specificata da Nexus
 - Esegue l'applicazione
 - Configura i health checks
 
