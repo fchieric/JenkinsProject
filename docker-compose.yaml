@@ -83,10 +83,6 @@ services:
       - prometheus
     restart: always
 
-
-    networks:
-      - devops_network
-
 networks:
   devops_network:
     driver: bridge
