@@ -4,6 +4,7 @@ metadata:
   name: flask-app
   labels:
     app: flask-app
+    version: {{ .Values.appVersion | quote }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -13,6 +14,7 @@ spec:
     metadata:
       labels:
         app: flask-app
+        version: {{ .Values.appVersion | quote }}
     spec:
       containers:
         - name: flask-app
@@ -23,7 +25,7 @@ spec:
              - |
               mkdir -p /app
               apt-get update && apt-get install -y curl
-              curl -v http://nexus:8081/repository/raw_repo/app-flask/1.0.0/app -o /app/flask-app
+              curl -v {{ .Values.nexus.url }}/repository/{{ .Values.nexus.repository }}/{{ .Values.nexus.path }}/{{ .Values.appVersion }}/app -o /app/flask-app
               chmod +x /app/flask-app
               /app/flask-app
           env:
