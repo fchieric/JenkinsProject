@@ -5,15 +5,17 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
+# Application configuration
 agentName: "Fabi"
+appVersion: "1.0.0"  # Default version to use
 
 nexus:
   url: "http://nexus:8081"
   repository: "raw_repo"
-  path: "app-flask/1.0.0/app"
+  path: "app-flask"  # Base path without version
 
 service:
-  type: NodePort #ora che è nella stessa rete va bene cluserIp, no NodePort
+  type: NodePort
   port: 5000
   targetPort: 5000
 
